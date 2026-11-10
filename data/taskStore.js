@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
+const { AppError } = require('../middleware/errorHandler');
 
 const DATA_FILE = path.join(__dirname, 'tasks.json');
 
@@ -13,12 +14,53 @@ function enqueue(operation) {
 }
 
 async function readTasks() {
-  const content = await fs.readFile(DATA_FILE, 'utf-8');
-  return JSON.parse(content);
+  try {
+    const content = await fs.readFile(DATA_FILE, 'utf-8');
+    return JSON.parse(content);
+  } catch (err) {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  }
 }
 
+// OneDrive gibi eşitleme araçları dosyayı Windows'ta kısa süreliğine kilitleyebilir.
+async function renameWithRetry(from, to, attempts = 5) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fs.rename(from, to);
+    } catch (err) {
+      if (attempt >= attempts || !['EPERM', 'EBUSY', 'EACCES'].includes(err.code)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+    }
+  }
+}
+
+// Önce geçici dosyaya yazar; yazma yarıda kalırsa asıl veri bozulmaz.
 async function writeTasks(tasks) {
-  await fs.writeFile(DATA_FILE, `${JSON.stringify(tasks, null, 2)}\n`, 'utf-8');
+  const tempFile = `${DATA_FILE}.tmp`;
+  await fs.writeFile(tempFile, `${JSON.stringify(tasks, null, 2)}\n`, 'utf-8');
+  await renameWithRetry(tempFile, DATA_FILE);
+}
+
+// Karşılaştırmada büyük/küçük harf ve fazla boşluklar yok sayılır.
+function normalizeText(value) {
+  return (value ?? '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('tr');
+}
+
+function isOpen(task) {
+  return task.status !== 'completed';
+}
+
+// Kuyruk içinde çağrılmalıdır; aksi halde eşzamanlı iki istek aynı görevi ekleyebilir.
+// Tamamlanmış görevler engel sayılmaz, böylece aynı iş daha sonra yeniden eklenebilir.
+function assertUnique(tasks, candidate) {
+  if (!isOpen(candidate)) return;
+
+  const title = normalizeText(candidate.title);
+  const duplicate = tasks.find((task) => task.id !== candidate.id && isOpen(task) && normalizeText(task.title) === title);
+  if (duplicate) {
+    throw new AppError(409, 'Aynı başlıkla açık bir görev zaten var', { existingId: duplicate.id });
+  }
 }
 
 function findAll() {
@@ -35,6 +77,7 @@ function findById(id) {
 function create(task) {
   return enqueue(async () => {
     const tasks = await readTasks();
+    assertUnique(tasks, task);
     tasks.push(task);
     await writeTasks(tasks);
     return task;
@@ -47,7 +90,9 @@ function update(id, changes) {
     const index = tasks.findIndex((task) => task.id === id);
     if (index === -1) return null;
 
-    tasks[index] = { ...tasks[index], ...changes };
+    const updated = { ...tasks[index], ...changes };
+    assertUnique(tasks, updated);
+    tasks[index] = updated;
     await writeTasks(tasks);
     return tasks[index];
   });
