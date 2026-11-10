@@ -1,8 +1,10 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { AppError } = require('../middleware/errorHandler');
+const { normalizeText } = require('../utils/text');
 
-const DATA_FILE = path.join(__dirname, 'tasks.json');
+// Testler gerçek veriye dokunmamak için TASKS_FILE ile başka bir dosya kullanır.
+const DATA_FILE = process.env.TASKS_FILE || path.join(__dirname, 'tasks.json');
 
 // Dosya işlemlerini sıraya alır, böylece eşzamanlı istekler birbirinin yazdığını ezmez.
 let queue = Promise.resolve();
@@ -40,11 +42,6 @@ async function writeTasks(tasks) {
   const tempFile = `${DATA_FILE}.tmp`;
   await fs.writeFile(tempFile, `${JSON.stringify(tasks, null, 2)}\n`, 'utf-8');
   await renameWithRetry(tempFile, DATA_FILE);
-}
-
-// Karşılaştırmada büyük/küçük harf ve fazla boşluklar yok sayılır.
-function normalizeText(value) {
-  return (value ?? '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('tr');
 }
 
 function isOpen(task) {

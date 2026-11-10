@@ -1,11 +1,12 @@
 {
   "name": "tnc-project-backend",
   "version": "1.0.0",
-  "description": "Express ile JSON dosyası tabanlı görev yönetim REST API'si",
+  "description": "TaskFlow: Express ile JSON dosyası tabanlı görev yönetim REST API'si",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --test tests/api.test.js"
   },
   "engines": {
     "node": ">=18"

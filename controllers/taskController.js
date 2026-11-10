@@ -1,100 +1,43 @@
 const { randomUUID } = require('crypto');
 const taskStore = require('../data/taskStore');
 const { AppError } = require('../middleware/errorHandler');
+const { STATUSES, PRIORITIES } = require('../constants/task');
+const { normalizeText } = require('../utils/text');
 
-const STATUSES = ['pending', 'in-progress', 'completed'];
-const PRIORITIES = ['low', 'medium', 'high'];
-const EDITABLE_FIELDS = ['title', 'description', 'status', 'priority', 'assignee'];
-const FILTER_FIELDS = ['status', 'priority', 'assignee'];
+// Bu alanlar alfabetik değil, anlamlarına göre sıralanır (low < medium < high).
+const RANKED_VALUES = { status: STATUSES, priority: PRIORITIES };
 
-// Yalnızca izin verilen alanları alır; id ve tarih alanları istemciden kabul edilmez.
-function pickEditableFields(body) {
-  const source = body ?? {};
-  const fields = {};
-  for (const name of EDITABLE_FIELDS) {
-    if (name in source) fields[name] = source[name];
-  }
-  return fields;
+function compareTasks({ field, descending }) {
+  const ranks = RANKED_VALUES[field];
+  const compare = ranks
+    ? (a, b) => ranks.indexOf(a[field]) - ranks.indexOf(b[field])
+    : (a, b) => a[field].localeCompare(b[field], 'tr');
+
+  return descending ? (a, b) => compare(b, a) : compare;
 }
 
-function validateFields(fields) {
-  const errors = [];
+function sendTaskList(res, tasks, { filters, sort, pagination }) {
+  const conditions = Object.entries(filters);
+  const result = tasks.filter((task) =>
+    conditions.every(([name, value]) => normalizeText(task[name]) === normalizeText(value)),
+  );
+  if (sort) result.sort(compareTasks(sort));
 
-  if ('title' in fields && (typeof fields.title !== 'string' || fields.title.trim() === '')) {
-    errors.push('title boş olmayan bir metin olmalıdır');
-  }
-  if ('description' in fields && typeof fields.description !== 'string') {
-    errors.push('description metin olmalıdır');
-  }
-  if ('status' in fields && !STATUSES.includes(fields.status)) {
-    errors.push(`status şunlardan biri olmalıdır: ${STATUSES.join(', ')}`);
-  }
-  if ('priority' in fields && !PRIORITIES.includes(fields.priority)) {
-    errors.push(`priority şunlardan biri olmalıdır: ${PRIORITIES.join(', ')}`);
-  }
-  if ('assignee' in fields && fields.assignee !== null && typeof fields.assignee !== 'string') {
-    errors.push('assignee metin veya null olmalıdır');
-  }
+  if (!pagination) return res.json(result);
 
-  return errors;
-}
-
-// Doğrulanmış metin alanlarını kırpar; boş assignee atanmamış (null) sayılır.
-function trimFields(fields) {
-  const trimmed = { ...fields };
-  if ('title' in trimmed) trimmed.title = trimmed.title.trim();
-  if ('description' in trimmed) trimmed.description = trimmed.description.trim();
-  if ('assignee' in trimmed) trimmed.assignee = trimmed.assignee?.trim() || null;
-  return trimmed;
-}
-
-// Gövdeyi doğrular ve eksik alanları varsayılanlarla tamamlar; POST ve PUT aynı kuralları kullanır.
-function parseTaskBody(body) {
-  const fields = pickEditableFields(body);
-  const errors = validateFields(fields);
-  if (!('title' in fields)) errors.unshift('title zorunludur');
-  if (errors.length > 0) throw new AppError(400, 'Doğrulama hatası', errors);
-
-  const clean = trimFields(fields);
-  return {
-    title: clean.title,
-    description: clean.description ?? '',
-    status: clean.status ?? 'pending',
-    priority: clean.priority ?? 'medium',
-    assignee: clean.assignee ?? null,
-  };
-}
-
-// PATCH yalnızca gönderilen alanları değiştirir, diğerlerine dokunmaz.
-function parsePartialBody(body) {
-  const fields = pickEditableFields(body);
-  const errors = validateFields(fields);
-  if (Object.keys(fields).length === 0) errors.push('Güncellenecek en az bir alan gönderilmelidir');
-  if (errors.length > 0) throw new AppError(400, 'Doğrulama hatası', errors);
-
-  return trimFields(fields);
-}
-
-function parseFilters(query) {
-  const filters = {};
-  for (const name of FILTER_FIELDS) {
-    if (name in query) filters[name] = query[name];
-  }
-  const errors = validateFields(filters);
-  if (errors.length > 0) throw new AppError(400, 'Doğrulama hatası', errors);
-
-  return filters;
-}
-
-function foldCase(value) {
-  return (value ?? '').trim().toLocaleLowerCase('tr');
+  const { page, limit } = pagination;
+  const start = (page - 1) * limit;
+  res.json({
+    data: result.slice(start, start + limit),
+    pagination: { page, limit, total: result.length, totalPages: Math.ceil(result.length / limit) },
+  });
 }
 
 async function createTask(req, res) {
   const now = new Date().toISOString();
   const task = await taskStore.create({
     id: randomUUID(),
-    ...parseTaskBody(req.body),
+    ...req.taskInput,
     createdAt: now,
     updatedAt: now,
   });
@@ -103,10 +46,26 @@ async function createTask(req, res) {
 }
 
 async function getTasks(req, res) {
-  const filters = Object.entries(parseFilters(req.query));
-  const tasks = await taskStore.findAll();
+  sendTaskList(res, await taskStore.findAll(), req.listOptions);
+}
 
-  res.json(tasks.filter((task) => filters.every(([name, value]) => foldCase(task[name]) === foldCase(value))));
+async function searchTasks(req, res) {
+  const keyword = normalizeText(req.query.keyword);
+  const tasks = await taskStore.findAll();
+  const matches = tasks.filter(
+    (task) => normalizeText(task.title).includes(keyword) || normalizeText(task.description).includes(keyword),
+  );
+
+  sendTaskList(res, matches, req.listOptions);
+}
+
+async function getTasksByAssignee(req, res) {
+  const { filters } = req.listOptions;
+
+  sendTaskList(res, await taskStore.findAll(), {
+    ...req.listOptions,
+    filters: { ...filters, assignee: req.params.assignee },
+  });
 }
 
 async function getTaskById(req, res) {
@@ -116,19 +75,10 @@ async function getTaskById(req, res) {
   res.json(task);
 }
 
+// PUT ve PATCH arasındaki fark, req.taskInput'u hazırlayan doğrulama middleware'indedir.
 async function updateTask(req, res) {
   const task = await taskStore.update(req.params.id, {
-    ...parseTaskBody(req.body),
-    updatedAt: new Date().toISOString(),
-  });
-  if (!task) throw new AppError(404, 'Görev bulunamadı');
-
-  res.json(task);
-}
-
-async function patchTask(req, res) {
-  const task = await taskStore.update(req.params.id, {
-    ...parsePartialBody(req.body),
+    ...req.taskInput,
     updatedAt: new Date().toISOString(),
   });
   if (!task) throw new AppError(404, 'Görev bulunamadı');
@@ -143,4 +93,4 @@ async function deleteTask(req, res) {
   res.status(204).end();
 }
 
-module.exports = { createTask, getTasks, getTaskById, updateTask, patchTask, deleteTask };
+module.exports = { createTask, getTasks, searchTasks, getTasksByAssignee, getTaskById, updateTask, deleteTask };
