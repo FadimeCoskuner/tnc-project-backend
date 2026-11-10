@@ -4,15 +4,7 @@ Bu kılavuz, TaskFlow API'sini bir frontend veya başka bir uygulamaya adım ad�
 
 ## 1. Sunucuyu başlatın
 
-Kurulum adımları [README](../README.md) dosyasındadır. Sunucu açıldığında `http://localhost:3000` adresi şu yanıtı verir:
-
-```json
-{
-  "name": "TaskFlow API",
-  "status": "ok",
-  "endpoints": { "tasks": "/tasks", "reports": "/reports/summary" }
-}
-```
+Kurulum adımları [README](../README.md) dosyasındadır. Sunucu açıldığında `http://localhost:3000` adresi hazır görev yönetim arayüzünü gösterir, API uçları da aynı adresin altındadır. Bu kılavuz, API'yi kendi uygulamanıza bağlamak içindir.
 
 ## 2. Frontend adresine izin verin
 

@@ -312,13 +312,18 @@ test('boş veride raporlar sıfır döndürür', async () => {
   assert.equal((await send('GET', '/reports/completed')).body.count, 0);
 });
 
-test('bilinmeyen adresler 404, kök adres API bilgisini döndürür', async () => {
+test('bilinmeyen adresler 404, kök adres arayüzü döndürür', async () => {
   assert.equal((await send('GET', '/yok')).status, 404);
   assert.equal((await send('GET', '/reports/yok')).status, 404);
 
-  const root = await send('GET', '/');
+  const root = await fetch(baseUrl);
   assert.equal(root.status, 200);
-  assert.equal(root.body.name, 'TaskFlow API');
+  assert.match(root.headers.get('content-type'), /text\/html/);
+  assert.match(await root.text(), /<title>TaskFlow<\/title>/);
+
+  for (const asset of ['/styles.css', '/js/main.js', '/js/api.js']) {
+    assert.equal((await fetch(`${baseUrl}${asset}`)).status, 200, asset);
+  }
 });
 
 test('CORS izin verilen adreslere başlık ekler', async () => {

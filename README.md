@@ -27,13 +27,18 @@ npm install
 npm start
 ```
 
-Sunucu `http://localhost:3000` adresinde açılır. Tarayıcıda `http://localhost:3000/tasks` adresini açarak veya Postman ile deneyebilirsiniz.
+Sunucu `http://localhost:3000` adresinde açılır. Bu adres görev yönetim arayüzünü gösterir, API uçları Postman ile aynı adres üzerinden denenebilir.
 
 | Komut | Açıklama |
 |---|---|
 | `npm start` | Sunucuyu başlatır |
 | `npm run dev` | Kod değiştikçe sunucuyu yeniden başlatır |
 | `npm test` | Otomatik testleri çalıştırır, `data/tasks.json` dosyasına dokunmaz |
+| `npm run build:css` | Arayüzde sınıf değişikliği yapıldığında Tailwind CSS çıktısını yeniden üretir |
+
+## Arayüz
+
+API'nin üzerine, Tailwind CSS ile hazırlanmış bir görev yönetim paneli eklenmiştir. Görevler eklenip düzenlenebilir, silinebilir, aranabilir ve filtrelenebilir, özet kartları raporları gösterir. Derlenmiş CSS repoda bulunduğu için ek bir kurulum veya derleme gerekmez.
 
 ## Ortam değişkenleri
 
@@ -116,6 +121,8 @@ Aynı `title` değerine sahip açık bir görev varsa istek `409 Conflict` ile r
 ├── data/              JSON dosyası ve dosya işlemleri
 ├── constants/         Durum ve öncelik değerleri
 ├── utils/             Yardımcı fonksiyonlar
+├── public/            Express'in sunduğu arayüz dosyaları
+├── ui/                Tailwind CSS kaynak dosyası
 ├── tests/             Otomatik API testleri
 ├── docs/              Ayrıntılı dokümanlar
 └── screenshot/        Postman test ekran görüntüleri

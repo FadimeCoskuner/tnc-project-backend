@@ -37,6 +37,10 @@ TaskFlow bu ihtiyaca şu şekilde yanıt verir:
 - Tamamlanan, bekleyen ve genel özet raporları
 - API, test ve kullanım dokümanları
 
+**Ek olarak**
+
+- API'yi kullanan, Tailwind CSS ile hazırlanmış görev yönetim arayüzü (`http://localhost:3000`)
+
 **Projeye eklenen iş kuralları**
 
 - **Tekrar eden görev engeli:** Aynı başlıkla açık bir görev varsa yeni görev `409 Conflict` ile reddedilir. Bu nedenle aynı başlıkla art arda `POST` isteği göndermek hata değil, beklenen davranıştır. Tamamlanan görevler engel oluşturmaz.
@@ -92,4 +96,4 @@ Ayrıntılar için [API Dokümantasyonu](docs/API.md), kurulum için [README](RE
 
 ## Kullanılan teknolojiler
 
-Node.js, Express.js 5, JSON dosya depolama, Postman, Node.js yerleşik test aracı (`node:test`).
+Node.js, Express.js 5, JSON dosya depolama, Tailwind CSS, Postman, Node.js yerleşik test aracı (`node:test`).

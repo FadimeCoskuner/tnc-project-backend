@@ -88,5 +88,6 @@ Aşağıdaki senaryoların tamamı otomatik testlerle doğrulanır.
 | `/reports/summary` | Doğru toplamlar, kişi kırılımı ve tamamlanma oranı |
 | Hiç görev yokken raporlar | Sıfır değerler |
 | Bilinmeyen adres | `404` |
+| Kök adres | `200`, arayüz sayfası ve dosyaları döner |
 | İzin verilen ve verilmeyen CORS adresleri | Başlık yalnızca izin verilene eklenir |
 | Yazma tamamlanır | Geçici dosya kalmaz, veri geçerli JSON olur |

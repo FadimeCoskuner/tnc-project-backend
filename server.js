@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const logger = require('./middleware/logger');
 const cors = require('./middleware/cors');
@@ -8,13 +9,12 @@ const reportRoutes = require('./routes/reportRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Logger'dan önce gelir; günlükte arayüz dosyaları değil, yalnızca API istekleri görünür.
+app.use(express.static(path.join(__dirname, 'public')));
+
 app.use(logger);
 app.use(cors);
 app.use(express.json());
-
-app.get('/', (req, res) => {
-  res.json({ name: 'TaskFlow API', status: 'ok', endpoints: { tasks: '/tasks', reports: '/reports/summary' } });
-});
 
 app.use('/tasks', taskRoutes);
 app.use('/reports', reportRoutes);
